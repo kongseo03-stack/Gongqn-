@@ -1738,6 +1738,45 @@ def api_friend_handle_request():
 # ------------------------------------------------------------------------------------------
 # [API] 채팅, 단톡방, 채널 관련 (기존 유지)
 # ------------------------------------------------------------------------------------------
+@app.route('/api/friend/status', methods=['POST'])
+def api_friend_status():
+    """친구들의 온라인 상태 및 마지막 접속 시간 반환"""
+    db = load_db()
+    me = session['user']
+    friends = db['users'][me].get('friends', [])
+    now = datetime.now()
+    result = {}
+    for fid in friends:
+        if fid in db['users']:
+            last_seen_str = db['users'][fid].get('last_seen', '')
+            if last_seen_str:
+                last_seen = datetime.fromisoformat(last_seen_str)
+                diff = now - last_seen
+                if diff.total_seconds() < 120:  # 2분 이내 = 온라인
+                    status = "online"
+                    status_text = "온라인"
+                elif diff.total_seconds() < 3600:  # 1시간 이내
+                    minutes = int(diff.total_seconds() / 60)
+                    status = "recent"
+                    status_text = f"{minutes}분 전"
+                elif diff.total_seconds() < 86400:  # 24시간 이내
+                    hours = int(diff.total_seconds() / 3600)
+                    status = "recent"
+                    status_text = f"{hours}시간 전"
+                else:
+                    days = int(diff.total_seconds() / 86400)
+                    status = "offline"
+                    status_text = f"{days}일 전"
+            else:
+                status = "offline"
+                status_text = "알 수 없음"
+            result[fid] = {
+                "status": status,
+                "status_text": status_text,
+                "nick": db['users'][fid].get('nick', fid)
+            }
+    return jsonify({"ok": True, "friends": result})
+
 @app.route('/api/chat/list', methods=['POST'])
 def api_chat_list():
     db = load_db()
