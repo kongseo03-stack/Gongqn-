@@ -86,6 +86,7 @@ def load_db():
             for u_id, u_data in db['users'].items():
                 if 'friends' not in u_data: u_data['friends'] = []
                 if 'inventory' not in u_data: u_data['inventory'] = []
+                if 'last_seen' not in u_data: u_data['last_seen'] = datetime.now().isoformat()
             
             # 구버전 룰렛 데이터 패치
             for i in range(1, 7):
@@ -274,8 +275,8 @@ UI_HTML = """
            ========================================================= */
         .super-embed {
             background: #ffffff; border-left: 6px solid var(--primary); border-radius: 12px; padding: 20px; color: var(--text-main);
-            width: 100%; max-width: 90%; margin: 10px 0; box-shadow: 0 8px 25px rgba(0,0,0,0.08); align-self: center; font-family: 'Pretendard', sans-serif;
-            position: relative; overflow: hidden; animation: slideInRight 0.4s ease-out;
+            width: 100%; max-width: 90%; margin: 10px 0; box-shadow: 0 8px 25px rgba(0,0,0,0.08); align-self: stretch; font-family: 'Pretendard', sans-serif;
+            position: relative; overflow: hidden; animation: slideInRight 0.4s ease-out; flex-shrink: 0;
         }
         @keyframes slideInRight { from { opacity: 0; transform: translateX(30px); } to { opacity: 1; transform: translateX(0); } }
         .super-embed::before {
@@ -1428,6 +1429,10 @@ def route_index():
         session.clear()
         return "접근 거부: 서버 최고 관리자에 의해 네트워크 접근이 차단된 계정입니다."
 
+    # 마지막 접속 시간 업데이트
+    u['last_seen'] = datetime.now().isoformat()
+    save_db(db)
+    
     session['nick'] = u.get('nick', session['user'])
     session['pfp'] = u.get('pfp', "")
     session['cash'] = u.get('cash', 0)
@@ -1854,6 +1859,15 @@ def api_chat_delete():
     db = load_db()
     rid = request.json['room_id']
     if rid in db['chat_rooms']:
+        rdata = db['chat_rooms'][rid]
+        # DM 방 삭제 시 양쪽 친구 관계도 끊기
+        if rdata['type'] == 'dm' and len(rdata.get('users', [])) == 2:
+            u1, u2 = rdata['users'][0], rdata['users'][1]
+            if u1 in db['users'] and u2 in db['users']:
+                if u2 in db['users'][u1].get('friends', []):
+                    db['users'][u1]['friends'].remove(u2)
+                if u1 in db['users'][u2].get('friends', []):
+                    db['users'][u2]['friends'].remove(u1)
         del db['chat_rooms'][rid]
         save_db(db)
     return jsonify({"ok": True})
