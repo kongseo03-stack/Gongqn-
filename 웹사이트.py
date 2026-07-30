@@ -20,6 +20,7 @@ import time
 import uuid
 import threading
 from datetime import datetime
+from urllib.request import Request, urlopen
 
 # ==========================================================================================
 # ⚙️ [SYSTEM] 서버 초기화 및 환경 설정
@@ -2120,8 +2121,10 @@ def _keep_alive():
     print(f"[KEEP-ALIVE] 활성화: {url}{ping_path} ({interval}초 간격)")
     while True:
         try:
-            requests.get(url + ping_path, timeout=10)
-            print(f"[KEEP-ALIVE] 핑 전송: {datetime.now().strftime('%H:%M:%S')}")
+            req = Request(url + ping_path, headers={'User-Agent': 'Mozilla/5.0'})
+            with urlopen(req, timeout=10) as response:
+                status = response.status
+            print(f"[KEEP-ALIVE] 핑 전송: {datetime.now().strftime('%H:%M:%S')} -> {status}")
         except Exception as e:
             print(f"[KEEP-ALIVE] 핑 실패: {e}")
         time.sleep(interval)
