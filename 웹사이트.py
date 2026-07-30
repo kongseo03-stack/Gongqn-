@@ -1861,34 +1861,72 @@ def api_chat_send():
             rdata['messages'] = []
         elif cmd == '/공지':
             text = ' '.join(parts[1:])
-            rdata['messages'].append({"type": "embed", "embed_type": "info", "color": "#3b82f6", "title": "서버 전체 공지", "desc": text})
+            if not text:
+                rdata['messages'].append({"type": "sys", "msg": "⚠️ 사용법: /공지 [내용]"})
+            else:
+                rdata['messages'].append({"type": "embed", "embed_type": "info", "color": "#3b82f6", "title": "서버 전체 공지", "desc": text})
         elif cmd == '/경고':
             text = ' '.join(parts[1:])
-            rdata['messages'].append({"type": "embed", "embed_type": "alert", "color": "#ef4444", "title": "시스템 경고 발령", "desc": text})
-        elif cmd == '/로벅스' and len(parts) > 2 and parts[1] == '계산기':
-            try:
-                rbx = int(parts[2])
-                rdata['messages'].append({"type": "embed", "embed_type": "success", "color": "#10b981", "title": "로벅스 환율 계산기 (1:10)", "desc": f"계산된 금액: **{rbx * 10} 원**"})
-            except: pass
-        elif cmd == '/아이템전송' and len(parts) >= 3:
-            target_u = parts[1]
-            item_name = ' '.join(parts[2:])
-            if target_u in db['users']:
-                db['users'][target_u].setdefault('inventory', []).append({"id": str(uuid.uuid4()), "name": item_name, "date": datetime.now().strftime("%Y-%m-%d %H:%M")})
-                rdata['messages'].append({"type": "embed", "embed_type": "item_transfer", "title": f"🎁 {item_name} 지급 완료", "desc": f"대상 유저 [{target_u}]의 인벤토리로 안전하게 전송되었습니다."})
+            if not text:
+                rdata['messages'].append({"type": "sys", "msg": "⚠️ 사용법: /경고 [내용]"})
+            else:
+                rdata['messages'].append({"type": "embed", "embed_type": "alert", "color": "#ef4444", "title": "시스템 경고 발령", "desc": text})
+        elif cmd == '/로벅스':
+            if len(parts) >= 3 and parts[1] == '계산기':
+                try:
+                    rbx = int(parts[2])
+                    rdata['messages'].append({"type": "embed", "embed_type": "success", "color": "#10b981", "title": "로벅스 환율 계산기 (1:10)", "desc": f"**{rbx}로벅은 {rbx * 10}원입니다.**"})
+                except ValueError:
+                    rdata['messages'].append({"type": "sys", "msg": "⚠️ 사용법: /로벅스 계산기 [숫자]  (예: /로벅스 계산기 100)"})
+            else:
+                rdata['messages'].append({"type": "sys", "msg": "⚠️ 사용법: /로벅스 계산기 [숫자]  (예: /로벅스 계산기 100)"})
+        elif cmd == '/아이템전송':
+            if len(parts) >= 3:
+                target_u = parts[1]
+                item_name = ' '.join(parts[2:])
+                if target_u in db['users']:
+                    db['users'][target_u].setdefault('inventory', []).append({"id": str(uuid.uuid4()), "name": item_name, "date": datetime.now().strftime("%Y-%m-%d %H:%M")})
+                    rdata['messages'].append({"type": "embed", "embed_type": "item_transfer", "title": f"🎁 {item_name} 지급 완료", "desc": f"대상 유저 [{target_u}]의 인벤토리로 안전하게 전송되었습니다."})
+                else:
+                    rdata['messages'].append({"type": "sys", "msg": f"⚠️ 대상 유저 [{target_u}]를 찾을 수 없습니다."})
+            else:
+                rdata['messages'].append({"type": "sys", "msg": "⚠️ 사용법: /아이템전송 [유저ID] [아이템이름]"})
         elif cmd == '/기록삭제':
             db['transactions'] = []
             rdata['messages'].append({"type": "embed", "embed_type": "alert", "title": "거래 기록 말소", "desc": "서버의 모든 실시간 거래 기록 데이터가 파괴되었습니다."})
-        elif cmd == '/캐시지급' and len(parts) >= 2:
-            try:
-                amt = int(parts[1])
-                target = [x for x in rdata['users'] if x != u][0] if rdata['type'] == 'dm' else u
-                db['users'][target]['cash'] += amt
-                rdata['messages'].append({"type": "embed", "embed_type": "success", "color": "#10b981", "title": "자금 지원", "desc": f"[{target}] 유저에게 {amt} 캐시가 지급되었습니다."})
-            except: pass
+        elif cmd == '/캐시지급':
+            if len(parts) >= 2:
+                try:
+                    amt = int(parts[1])
+                    target = [x for x in rdata['users'] if x != u][0] if rdata['type'] == 'dm' else u
+                    if target not in db['users']:
+                        rdata['messages'].append({"type": "sys", "msg": "⚠️ 대상 유저를 찾을 수 없습니다."})
+                    else:
+                        db['users'][target]['cash'] = db['users'][target].get('cash', 0) + amt
+                        rdata['messages'].append({"type": "embed", "embed_type": "success", "color": "#10b981", "title": "자금 지원", "desc": f"[{target}] 유저에게 {amt} 캐시가 지급되었습니다."})
+                except ValueError:
+                    rdata['messages'].append({"type": "sys", "msg": "⚠️ 사용법: /캐시지급 [금액]  (예: /캐시지급 5000)"})
+            else:
+                rdata['messages'].append({"type": "sys", "msg": "⚠️ 사용법: /캐시지급 [금액]  (예: /캐시지급 5000)"})
+        elif cmd == '/캐시차감':
+            if len(parts) >= 2:
+                try:
+                    amt = int(parts[1])
+                    target = [x for x in rdata['users'] if x != u][0] if rdata['type'] == 'dm' else u
+                    if target not in db['users']:
+                        rdata['messages'].append({"type": "sys", "msg": "⚠️ 대상 유저를 찾을 수 없습니다."})
+                    else:
+                        db['users'][target]['cash'] = db['users'][target].get('cash', 0) - amt
+                        rdata['messages'].append({"type": "embed", "embed_type": "alert", "color": "#ef4444", "title": "자금 차감", "desc": f"[{target}] 유저의 캐시에서 {amt}가 차감되었습니다."})
+                except ValueError:
+                    rdata['messages'].append({"type": "sys", "msg": "⚠️ 사용법: /캐시차감 [금액]  (예: /캐시차감 5000)"})
+            else:
+                rdata['messages'].append({"type": "sys", "msg": "⚠️ 사용법: /캐시차감 [금액]  (예: /캐시차감 5000)"})
         elif cmd == '/구매완료':
             if rdata['type'] == 'shop':
                 rdata['messages'].append({"type": "embed", "embed_type": "review_request", "id": str(uuid.uuid4())[:8], "item_name": rdata['item_name']})
+            else:
+                rdata['messages'].append({"type": "sys", "msg": "⚠️ 이 명령어는 상점 거래방에서만 사용할 수 있습니다."})
         elif cmd == '/거래완료':
             if rdata['type'] == 'shop':
                 target = [x for x in rdata['users'] if x != u][0]
@@ -1896,6 +1934,10 @@ def api_chat_send():
                 db.setdefault('transactions', []).insert(0, {"buyer_nick": t_nick, "item_name": rdata['item_name'], "date": datetime.now().strftime("%m/%d %H:%M")})
                 if len(db['transactions']) > 15: db['transactions'].pop()
                 rdata['messages'].append({"type": "sys", "msg": "실시간 거래 기록에 성공적으로 등재되었습니다."})
+            else:
+                rdata['messages'].append({"type": "sys", "msg": "⚠️ 이 명령어는 상점 거래방에서만 사용할 수 있습니다."})
+        else:
+            rdata['messages'].append({"type": "sys", "msg": f"⚠️ 알 수 없는 명령어: {cmd}\n사용 가능: /시간 /청소 /공지 /경고 /로벅스 계산기 /아이템전송 /기록삭제 /캐시지급 /캐시차감 /구매완료 /거래완료"})
     else:
         rdata['messages'].append({"type": "msg", "sender": u, "sender_nick": u_nick, "msg": msg, "date": datetime.now().strftime("%H:%M")})
     
