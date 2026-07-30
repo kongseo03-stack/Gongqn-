@@ -1196,10 +1196,15 @@ UI_HTML = """
             c.innerHTML = '<div style="text-align:center; color:#94a3b8; padding:40px; background:white; border-radius:15px; border:2px dashed var(--border);">아직 개설된 채팅방이 없습니다. 친구를 추가하거나 방을 만들어보세요!</div>';
             return;
         }
+        // 친구 상태 정보 가져오기
+        const statusRes = await req('/api/friend/status', {});
+        const friendStatus = statusRes.ok ? statusRes.friends : {};
+        
         r.rooms.forEach(rm => {
             let icon = '<i class="fas fa-user"></i>';
             let title = rm.target_nick;
             let badge = '';
+            let statusHtml = '';
             
             if(rm.type === 'shop') { 
                 icon = '<i class="fas fa-shopping-bag"></i>'; 
@@ -1213,6 +1218,17 @@ UI_HTML = """
                 icon = '<i class="fas fa-globe"></i>';
                 title = rm.name;
                 badge = '<span style="background:var(--success-grad);color:white;padding:3px 8px;border-radius:10px;font-size:0.7rem;margin-left:5px;">공개 채널</span>';
+            } else if(rm.type === 'dm') {
+                // DM 방이면 친구 상태 표시
+                const targetId = rm.room_id.replace('dm_', '').replace(myUserId, '').replace('_', '').trim();
+                const fs = friendStatus[targetId] || friendStatus[Object.keys(friendStatus).find(k => rm.room_id.includes(k))];
+                if(fs) {
+                    const dotColor = fs.status === 'online' ? '#10b981' : (fs.status === 'recent' ? '#f59e0b' : '#94a3b8');
+                    statusHtml = `<div style="font-size:0.7rem; color:${dotColor}; margin-top:2px; display:flex; align-items:center; gap:4px;">
+                        <span style="display:inline-block; width:6px; height:6px; border-radius:50%; background:${dotColor};"></span>
+                        ${fs.status_text}
+                    </div>`;
+                }
             }
 
             c.innerHTML += `
@@ -1221,6 +1237,7 @@ UI_HTML = """
                         <div class="channel-icon">${icon}</div>
                         <div style="font-weight:900; font-size:1.1rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:65%;">
                             ${title}
+                            ${statusHtml}
                         </div> 
                         ${badge}
                     </div>
